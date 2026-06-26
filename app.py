@@ -7,6 +7,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 import joblib
 import os
+from firebase_config import db
 
 app = Flask(__name__)
 CORS(app)
@@ -267,5 +268,5 @@ def predict():
     return jsonify(results)
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", 5001))
     app.run(host="0.0.0.0", port=port)

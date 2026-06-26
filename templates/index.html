@@ -103,21 +103,17 @@
 </head>
 <body>
 
-    <!-- AUTHENTICATION -->
     <div id="auth-view">
         <div class="auth-card">
-            <!-- Icon changed to be more general health-oriented -->
             <i class="fa-solid fa-heart-pulse auth-icon"></i>
             <h2 id="auth-title">System Login</h2>
             <p>Access your Multi-Disease Risk Dashboard</p>
             <div id="auth-error" style="color:var(--risk-high-text); margin-bottom:1rem; font-weight:600;"></div>
             <form id="auth-form">
-                <!-- Public-friendly name field -->
                 <div class="form-group hidden" id="name-group">
                     <label>Full Name</label>
                     <input type="text" id="fullname" placeholder="e.g. John Doe">
                 </div>
-                <!-- Public-friendly email field -->
                 <div class="form-group"><label>Email Address</label><input type="email" id="email" required placeholder="user@example.com"></div>
                 <div class="form-group"><label>Password</label><input type="password" id="password" required placeholder="••••••••"></div>
                 <button type="submit" class="auth-btn" id="auth-submit-btn">Login</button>
@@ -126,7 +122,6 @@
         </div>
     </div>
 
-    <!-- ADMIN TERMINAL -->
     <div id="admin-view" class="hidden">
         <div class="top-nav">
             <div class="nav-brand"><h1>Admin Dashboard</h1><p>Dataset Upload & Model Training</p></div>
@@ -153,12 +148,10 @@
         </div>
     </div>
 
-    <!-- DASHBOARD -->
     <div id="dashboard-view" class="hidden">
         <div class="top-nav">
             <div class="nav-brand"><h1>Multi-Disease Prediction System</h1><p>Predicting Diabetes, Heart Disease, Hypertension & Kidney Disease</p></div>
             <div class="nav-actions">
-                <!-- Generic User Icon instead of Doctor Icon -->
                 <span id="display-user-name" style="font-weight:600; color: var(--primary-blue); margin-right: 1rem; font-size: 1.05rem;"></span>
                 <button id="history-btn" class="nav-btn history-btn"><i class="fa-solid fa-clock-rotate-left"></i> Personal History</button>
                 <button class="nav-btn logout-btn user-logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
@@ -233,7 +226,6 @@
         <div class="footer-note">Note: Predictions generated via algorithmic proxy and are not a substitute for formal diagnostic procedures.</div>
     </div>
 
-    <!-- PATIENT HISTORY MODAL -->
     <div id="history-modal" class="history-modal-overlay hidden">
         <div class="history-modal">
             <div class="history-header">
@@ -241,96 +233,38 @@
                 <button class="close-btn" id="close-history-btn"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="history-body" id="history-container">
-                <!-- History Cards inject here via JS -->
-            </div>
+                </div>
         </div>
     </div>
 
-    <script>
-        // ==========================================
-        // SYSTEM CONFIGURATION
-        // ==========================================
-        const PYTHON_API_URL = "";
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDt8AlLhAdMy99Z3uR4Q7jH-7UUmwqwtE8",
+            authDomain: "medipredict-2264f.firebaseapp.com",
+            projectId: "medipredict-2264f",
+            storageBucket: "medipredict-2264f.firebasestorage.app",
+            messagingSenderId: "575564020752",
+            appId: "1:575564020752:web:970a430cae6c3a449f5e95"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        const PYTHON_API_URL = "https://medipredict-pkhj.onrender.com";
         const ADMIN_EMAIL = "admin@system.com"; 
-        const ADMIN_PASSWORD = "admin"; // <--- CHANGE YOUR ADMIN PASSWORD HERE
-
-        // --- REAL LOCAL DATABASE & AUTHENTICATION ---
-        const auth = {
-            currentUser: null, 
-            listeners: [],
-            onAuthStateChanged: function(cb) { 
-                this.listeners.push(cb); 
-                const u = JSON.parse(localStorage.getItem('current_user')); 
-                this.currentUser = u; 
-                cb(u); 
-            },
-            signInWithEmailAndPassword: async function(e, p) { 
-                const users = JSON.parse(localStorage.getItem('system_users')) || {};
-                
-                // 1. Secure Admin Login Check
-                if(e === ADMIN_EMAIL) {
-                    if (p === ADMIN_PASSWORD) {
-                        const u = { email: e, name: "System Admin", uid: "admin_001" };
-                        localStorage.setItem('current_user', JSON.stringify(u));
-                        this.currentUser = u; 
-                        this.listeners.forEach(cb => cb(u)); 
-                        return { user: u };
-                    } else {
-                        throw new Error("Incorrect Admin Password!");
-                    }
-                }
-                
-                // 2. Regular User Login Check
-                if (users[e] && users[e].password === p) {
-                    const u = { email: e, name: users[e].name, uid: users[e].uid };
-                    localStorage.setItem('current_user', JSON.stringify(u));
-                    this.currentUser = u;
-                    this.listeners.forEach(cb => cb(u));
-                    return { user: u };
-                } else {
-                    throw new Error("Invalid email or password. Please try again or create an account.");
-                }
-            },
-            createUserWithEmailAndPassword: async function(e, p, name) { 
-                const users = JSON.parse(localStorage.getItem('system_users')) || {};
-                if (users[e]) throw new Error("An account with this email already exists!");
-                if (e === ADMIN_EMAIL) throw new Error("Cannot register the admin email.");
-                if (!name || name.trim() === "") throw new Error("Please enter your Full Name to register.");
-                
-                const uid = 'user_' + Date.now();
-                users[e] = { email: e, password: p, name: name, uid: uid };
-                localStorage.setItem('system_users', JSON.stringify(users));
-                return this.signInWithEmailAndPassword(e, p);
-            },
-            signOut: async function() { 
-                localStorage.removeItem('current_user'); 
-                this.currentUser = null; 
-                this.listeners.forEach(cb => cb(null)); 
-            }
-        };
-
-        const db = { 
-            collection: function(c) { 
-                return { 
-                    add: async function(d) { 
-                        const existing = JSON.parse(localStorage.getItem(c)) || []; 
-                        existing.unshift(d); // Add to top of list
-                        localStorage.setItem(c, JSON.stringify(existing)); 
-                        return { id: "record_" + Date.now() }; 
-                    },
-                    getHistory: function(uid) {
-                        const all = JSON.parse(localStorage.getItem(c)) || [];
-                        return all.filter(record => record.uid === uid);
-                    }
-                }; 
-            } 
-        };
 
         let isLoginMode = true;
         let shapChartInstance = null; 
         let limeChartInstance = null; 
 
-        const authView = document.getElementById('auth-view'), dashboardView = document.getElementById('dashboard-view'), adminView = document.getElementById('admin-view');
+        const authView = document.getElementById('auth-view');
+        const dashboardView = document.getElementById('dashboard-view');
+        const adminView = document.getElementById('admin-view');
 
         // Toggle Auth UI
         document.getElementById('toggle-auth-mode').addEventListener('click', (e) => {
@@ -340,7 +274,6 @@
             document.getElementById('auth-toggle-text').innerText = isLoginMode ? "New user? " : "Already have an account? ";
             e.target.innerText = isLoginMode ? "Create an account" : "Login here";
             
-            // Show/Hide Full Name Field
             const nameGroup = document.getElementById('name-group');
             const nameInput = document.getElementById('fullname');
             if (isLoginMode) {
@@ -363,40 +296,47 @@
 
             try {
                 if (isLoginMode) {
-                    await auth.signInWithEmailAndPassword(email, password);
+                    await signInWithEmailAndPassword(auth, email, password);
                 } else {
-                    await auth.createUserWithEmailAndPassword(email, password, name);
+                    if (!name || name.trim() === "") throw new Error("Please enter your Full Name to register.");
+                    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                    await updateProfile(userCredential.user, { displayName: name });
+                    document.getElementById('display-user-name').innerHTML = `<i class="fa-solid fa-circle-user"></i> ${name}`;
                 }
-            } catch (error) { err.innerText = error.message; }
+            } catch (error) { 
+                err.innerText = error.message.replace("Firebase: ", ""); 
+            }
         });
 
-        auth.onAuthStateChanged(user => {
+        // Auth State Listener
+        onAuthStateChanged(auth, (user) => {
             if (user) {
                 authView.classList.add('hidden');
                 if (user.email === ADMIN_EMAIL) { 
                     adminView.classList.remove('hidden'); dashboardView.classList.add('hidden'); 
                 } else { 
-                    // Update Display Name with Generic User Icon
-                    document.getElementById('display-user-name').innerHTML = `<i class="fa-solid fa-circle-user"></i> ${user.name}`;
+                    const displayName = user.displayName || "User";
+                    document.getElementById('display-user-name').innerHTML = `<i class="fa-solid fa-circle-user"></i> ${displayName}`;
                     adminView.classList.add('hidden'); dashboardView.classList.remove('hidden'); 
                 }
             } else { 
                 authView.classList.remove('hidden'); dashboardView.classList.add('hidden'); adminView.classList.add('hidden'); 
-                // Reset form fields
                 document.getElementById('email').value = "";
                 document.getElementById('password').value = "";
                 document.getElementById('fullname').value = "";
             }
         });
 
-        document.querySelectorAll('.logout-btn').forEach(btn => btn.addEventListener('click', () => {
-            auth.signOut();
+        // Logout Process
+        document.querySelectorAll('.logout-btn').forEach(btn => btn.addEventListener('click', async () => {
+            await signOut(auth);
             if (shapChartInstance) shapChartInstance.destroy();
             if (limeChartInstance) limeChartInstance.destroy();
             document.getElementById('ai-explanation-container').classList.add('hidden');
             document.getElementById('prediction-results').innerHTML = '<tr><td colspan="4" style="color: var(--text-muted); padding: 3rem 0;"><i class="fa-solid fa-chart-line" style="font-size: 2rem; margin-bottom: 10px; opacity: 0.5;"></i><br>Run a prediction to see AI analysis.</td></tr>';
         }));
 
+        // Admin Train
         document.getElementById('admin-train-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const file = document.getElementById('csv-file').files[0], statusDiv = document.getElementById('train-status');
@@ -408,9 +348,10 @@
                 const json = await res.json();
                 if (res.ok) { statusDiv.innerText = json.message + " ✓"; statusDiv.style.color = "var(--risk-low-text)"; } 
                 else { statusDiv.innerText = "Error: " + json.error; statusDiv.style.color = "var(--risk-high-text)"; }
-            } catch (err) { statusDiv.innerText = "Failed to connect. Is Python running on port 5001?"; statusDiv.style.color = "var(--risk-high-text)"; }
+            } catch (err) { statusDiv.innerText = "Failed to connect to Python backend."; statusDiv.style.color = "var(--risk-high-text)"; }
         });
 
+        // Run Prediction & Save to Firestore
         document.getElementById('predict-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = document.getElementById('run-predict-btn'); btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Analyzing...';
@@ -448,84 +389,98 @@
                 renderPredictions(predictions);
                 renderExplainability(predictions);
                 
-                // Save to local database with a timestamp
+                // Save to Firestore
                 const dateStr = new Date().toLocaleString();
-                await db.collection("patient_history").add({ 
-                    uid: auth.currentUser.uid, 
-                    date: dateStr, 
-                    inputs: patientData, 
-                    results: predictions 
+                await addDoc(collection(db, "patient_history"), {
+                    uid: auth.currentUser.uid,
+                    date: dateStr,
+                    inputs: patientData,
+                    results: predictions,
+                    timestamp: Date.now()
                 });
                 
                 btn.innerHTML = '<i class="fa-solid fa-check"></i> Saved to Database';
                 setTimeout(() => { btn.innerHTML = '<i class="fa-solid fa-stethoscope"></i> Predict & Save'; }, 2000);
-            } catch (err) { alert("Could not reach Python API. Ensure Flask is running on port 5001."); btn.innerHTML = '<i class="fa-solid fa-stethoscope"></i> Predict & Save'; }
+            } catch (err) { alert("Could not reach Python API."); btn.innerHTML = '<i class="fa-solid fa-stethoscope"></i> Predict & Save'; }
         });
 
-        // --- HISTORY MODAL LOGIC ---
+        // --- HISTORY MODAL LOGIC (Firestore Retrieval) ---
         const historyModal = document.getElementById('history-modal');
         
-        document.getElementById('history-btn').addEventListener('click', () => {
+        document.getElementById('history-btn').addEventListener('click', async () => {
             const container = document.getElementById('history-container');
-            container.innerHTML = "";
+            container.innerHTML = '<div style="text-align:center; padding:2rem;"><i class="fa-solid fa-circle-notch fa-spin fa-2x" style="color:var(--primary-blue);"></i></div>';
+            historyModal.classList.remove('hidden');
             
-            // Get records specifically for this logged-in user
-            const records = db.collection('patient_history').getHistory(auth.currentUser.uid);
-            
-            if (records.length === 0) {
-                container.innerHTML = "<p style='text-align:center; color:var(--text-muted); margin-top:2rem;'>No assessment history found. Run a prediction first!</p>";
-            } else {
-                const diseaseLabels = { 'diabetes': 'Diabetes', 'cardio': 'Heart Disease', 'kidney': 'Kidney Disease', 'hyper': 'Hypertension' };
+            try {
+                // Get records specifically for this logged-in user
+                const q = query(collection(db, "patient_history"), where("uid", "==", auth.currentUser.uid));
+                const querySnapshot = await getDocs(q);
                 
-                records.forEach(rec => {
-                    let inputHtml = `
-                        <div class="history-input-grid">
-                            <div><span>Age:</span> ${rec.inputs.age}</div>
-                            <div><span>Gender:</span> ${rec.inputs.gender}</div>
-                            <div><span>BP:</span> ${rec.inputs.bp}</div>
-                            <div><span>Glucose:</span> ${rec.inputs.glucose}</div>
-                            <div><span>Cholesterol:</span> ${rec.inputs.chol}</div>
-                            <div><span>Creatinine:</span> ${rec.inputs.creat}</div>
-                            <div><span>BMI:</span> ${rec.inputs.bmi}</div>
-                            <div><span>Smoking:</span> ${rec.inputs.smoke}</div>
-                        </div>
-                    `;
+                let records = [];
+                querySnapshot.forEach((doc) => {
+                    records.push(doc.data());
+                });
+
+                // Sort newest first
+                records.sort((a, b) => b.timestamp - a.timestamp);
+                
+                if (records.length === 0) {
+                    container.innerHTML = "<p style='text-align:center; color:var(--text-muted); margin-top:2rem;'>No assessment history found. Run a prediction first!</p>";
+                } else {
+                    container.innerHTML = "";
+                    const diseaseLabels = { 'diabetes': 'Diabetes', 'cardio': 'Heart Disease', 'kidney': 'Kidney Disease', 'hyper': 'Hypertension' };
                     
-                    let resultsHtml = "";
-                    Object.keys(rec.results).forEach(key => {
-                        const maxProb = Math.max(rec.results[key].rf, rec.results[key].lr);
-                        let riskColor = maxProb >= 0.70 ? "var(--risk-high-text)" : (maxProb >= 0.40 ? "var(--risk-med-text)" : "var(--risk-low-text)");
-                        let riskLabel = maxProb >= 0.70 ? "High" : (maxProb >= 0.40 ? "Med" : "Low");
-                        
-                        resultsHtml += `
-                            <div class="history-result-item">
-                                <span>${diseaseLabels[key]}</span>
-                                <strong style="color:${riskColor};">${riskLabel} (${(maxProb*100).toFixed(0)}%)</strong>
+                    records.forEach(rec => {
+                        let inputHtml = `
+                            <div class="history-input-grid">
+                                <div><span>Age:</span> ${rec.inputs.age}</div>
+                                <div><span>Gender:</span> ${rec.inputs.gender}</div>
+                                <div><span>BP:</span> ${rec.inputs.bp}</div>
+                                <div><span>Glucose:</span> ${rec.inputs.glucose}</div>
+                                <div><span>Cholesterol:</span> ${rec.inputs.chol}</div>
+                                <div><span>Creatinine:</span> ${rec.inputs.creat}</div>
+                                <div><span>BMI:</span> ${rec.inputs.bmi}</div>
+                                <div><span>Smoking:</span> ${rec.inputs.smoke}</div>
                             </div>
                         `;
-                    });
+                        
+                        let resultsHtml = "";
+                        Object.keys(rec.results).forEach(key => {
+                            const maxProb = Math.max(rec.results[key].rf, rec.results[key].lr);
+                            let riskColor = maxProb >= 0.70 ? "var(--risk-high-text)" : (maxProb >= 0.40 ? "var(--risk-med-text)" : "var(--risk-low-text)");
+                            let riskLabel = maxProb >= 0.70 ? "High" : (maxProb >= 0.40 ? "Med" : "Low");
+                            
+                            resultsHtml += `
+                                <div class="history-result-item">
+                                    <span>${diseaseLabels[key]}</span>
+                                    <strong style="color:${riskColor};">${riskLabel} (${(maxProb*100).toFixed(0)}%)</strong>
+                                </div>
+                            `;
+                        });
 
-                    const card = document.createElement('div');
-                    card.className = 'history-card';
-                    card.innerHTML = `
-                        <div class="history-date"><i class="fa-regular fa-calendar-check"></i> Date: ${rec.date}</div>
-                        <div class="history-inputs"><strong style="display:block; margin-bottom:10px; color:var(--text-dark);">Metrics Provided</strong>${inputHtml}</div>
-                        <div class="history-results"><strong style="display:block; margin-bottom:10px; color:var(--text-dark);">AI Risk Assessment</strong>${resultsHtml}</div>
-                    `;
-                    container.appendChild(card);
-                });
+                        const card = document.createElement('div');
+                        card.className = 'history-card';
+                        card.innerHTML = `
+                            <div class="history-date"><i class="fa-regular fa-calendar-check"></i> Date: ${rec.date}</div>
+                            <div class="history-inputs"><strong style="display:block; margin-bottom:10px; color:var(--text-dark);">Metrics Provided</strong>${inputHtml}</div>
+                            <div class="history-results"><strong style="display:block; margin-bottom:10px; color:var(--text-dark);">AI Risk Assessment</strong>${resultsHtml}</div>
+                        `;
+                        container.appendChild(card);
+                    });
+                }
+            } catch (error) {
+                container.innerHTML = `<p style='text-align:center; color:var(--risk-high-text); margin-top:2rem;'>Error loading history: ${error.message}</p>`;
             }
-            
-            historyModal.classList.remove('hidden');
         });
 
         document.getElementById('close-history-btn').addEventListener('click', () => {
             historyModal.classList.add('hidden');
         });
 
+        // UI RENDER FUNCTIONS
         function renderPredictions(data) {
             const tbody = document.getElementById('prediction-results'); tbody.innerHTML = "";
-            
             const diseaseConfig = { 
                 'diabetes': { label: 'Diabetes', icon: 'fa-pager', colorClass: 'icon-blue' }, 
                 'cardio': { label: 'Heart Disease', icon: 'fa-heart-pulse', colorClass: 'icon-red' }, 
@@ -541,9 +496,7 @@
                     tbody.innerHTML += `<tr>
                         <td>
                             <div class="disease-cell">
-                                <div class="disease-icon ${c.colorClass}">
-                                    <i class="fa-solid ${c.icon}"></i>
-                                </div>
+                                <div class="disease-icon ${c.colorClass}"><i class="fa-solid ${c.icon}"></i></div>
                                 ${c.label}
                             </div>
                         </td>
@@ -558,20 +511,16 @@
         function renderExplainability(data) {
             let maxRisk = -1, targetKey = null;
             let elevatedRisks = []; 
-            
             const diseaseLabels = { 'diabetes': 'Diabetes mellitus', 'cardio': 'Cardiovascular pathology', 'kidney': 'Chronic Kidney Disease (CKD)', 'hyper': 'Hypertension' };
             
             Object.keys(data).forEach(key => { 
-                if (data[key].rf >= 0.40) {
-                    elevatedRisks.push({ key: key, risk: data[key].rf, name: diseaseLabels[key] });
-                }
+                if (data[key].rf >= 0.40) elevatedRisks.push({ key: key, risk: data[key].rf, name: diseaseLabels[key] });
                 if (data[key].rf > maxRisk) { maxRisk = data[key].rf; targetKey = key; } 
             });
             
             if (!targetKey || !data[targetKey].explain) return;
 
             const explain = data[targetKey].explain, diseaseName = diseaseLabels[targetKey] || targetKey;
-            
             const shapColors = explain.shap.map(v => v > 0 ? '#ef4444' : '#3b82f6'), limeColors = explain.lime.map(v => v > 0 ? '#ef4444' : '#3b82f6');
 
             if (shapChartInstance) shapChartInstance.destroy();
@@ -587,27 +536,21 @@
             });
 
             const riskLevelText = maxRisk >= 0.70 ? "Elevated (High)" : (maxRisk >= 0.40 ? "Moderate" : "Nominal (Low)");
-            
             let explanationText = `Based on the multi-variate analysis, the algorithmic ensemble has flagged an overarching <strong>${riskLevelText} clinical risk profile</strong>. `;
             
             if (maxRisk < 0.40) {
                  explanationText = `The current metrics yield a <strong>${riskLevelText} clinical risk profile</strong> (${(maxRisk*100).toFixed(1)}%). All primary indicators remain within statistically safe boundaries. The LIME matrix above outlines the minor baseline factors contributing to this nominal risk.`;
             } else if (elevatedRisks.length > 1) {
                 explanationText += `The model detects compounding physiological stress across multiple systems, specifically noting elevated probabilities for `;
-                explanationText += elevatedRisks.map(d => `<strong>${d.name}</strong>`).join(", ");
-                explanationText += `. <br><br>While the LIME matrix explicitly maps the dominant variables for the primary threat (${diseaseName}) including baseline demographics, it is clinically vital to focus on actionable metrics.`;
+                explanationText += elevatedRisks.map(d => `<strong>${d.name}</strong>`).join(", ") + `. <br><br>While the LIME matrix explicitly maps the dominant variables for the primary threat (${diseaseName}) including baseline demographics, it is clinically vital to focus on actionable metrics.`;
             } else {
-                 let maxLimeVal = -999;
-                 let topFeatureName = "certain key vitals";
+                 let maxLimeVal = -999, topFeatureName = "certain key vitals";
                  const immutableFactors = ['age', 'sex', 'gender', 'family', 'history'];
                  for(let i=0; i < explain.lime.length; i++) {
                      let isImmutable = immutableFactors.some(img => explain.features[i].toLowerCase().includes(img));
-                     if(explain.lime[i] > maxLimeVal && !isImmutable) {
-                         maxLimeVal = explain.lime[i];
-                         topFeatureName = explain.features[i];
-                     }
+                     if(explain.lime[i] > maxLimeVal && !isImmutable) { maxLimeVal = explain.lime[i]; topFeatureName = explain.features[i]; }
                  }
-                 if(maxLimeVal === -999) { topFeatureName = explain.features[0]; }
+                 if(maxLimeVal === -999) topFeatureName = explain.features[0];
                  explanationText += `The primary concern is the development or presence of <strong>${diseaseName}</strong> (calculated probability: ${(maxRisk*100).toFixed(1)}%). While immutable demographics (like Age) heavily influence the baseline statistical model, the primary <em>actionable</em> physiological variable compounding this specific risk vector is their <strong>${topFeatureName}</strong>.`;
             }
 
@@ -622,14 +565,8 @@
             
             const listEl = document.getElementById('ai-precautions-list');
             listEl.innerHTML = "";
-            
-            if (maxRisk < 0.40) {
-                 listEl.innerHTML = "<li>Maintain current healthy lifestyle protocols and schedule routine annual screening.</li>";
-            } else if (elevatedRisks.length > 0) {
-                elevatedRisks.forEach(d => {
-                     if(clinicalProtocols[d.key]) listEl.innerHTML += `<li>${clinicalProtocols[d.key]}</li>`;
-                });
-            }
+            if (maxRisk < 0.40) listEl.innerHTML = "<li>Maintain current healthy lifestyle protocols and schedule routine annual screening.</li>";
+            else if (elevatedRisks.length > 0) elevatedRisks.forEach(d => { if(clinicalProtocols[d.key]) listEl.innerHTML += `<li>${clinicalProtocols[d.key]}</li>`; });
             
             document.getElementById('ai-explanation-container').classList.remove('hidden');
         }
