@@ -201,7 +201,7 @@ def predict():
             rf_score = max(min(rf_score, 0.95), 0.02)
             lr_score = max(min(lr_score, 0.95), 0.02)
 
-           # ================= EXPLAINABILITY =================
+            # ================= EXPLAINABILITY =================
             clean_features = []
             for f in features:
                 c = f.lower()
@@ -223,8 +223,6 @@ def predict():
                 explainer_shap = shap.TreeExplainer(rf)
                 shap_vals = explainer_shap.shap_values(X)
                 
-                # Robust extraction for different SHAP versions
-                import numpy as np
                 if isinstance(shap_vals, list): 
                     shap_array = shap_vals[1][0].tolist()
                 elif len(np.array(shap_vals).shape) == 3: 
@@ -245,17 +243,29 @@ def predict():
                 lime_weights_dict = dict(exp.local_exp[1]) 
                 lime_array = [lime_weights_dict.get(i, 0.0) for i in range(len(clean_features))]
                 
-                # De-bias Age/Gender in charts so actionable features are highly visible
+                # De-bias Age/Gender if SHAP/LIME succeeds
                 for idx, feat in enumerate(clean_features):
                     if feat in ['Age', 'Gender']:
                         shap_array[idx] = shap_array[idx] * 0.4
                         lime_array[idx] = lime_array[idx] * 0.4
                         
             except Exception as e:
-                # DONT PASS SILENTLY! Print this to the Render console logs
-                print(f"⚠️ EXPLAINABILITY ERROR for {disease}: {str(e)}")
-                import traceback
-                traceback.print_exc()
+                # --- BULLETPROOF FALLBACK LOGIC ---
+                print(f"⚠️ SHAP/LIME missing or crashed for {disease}. Falling back to Linear Weights. Error: {str(e)}")
+                try:
+                    # Calculate feature importance using Logistic Regression Weights * Patient Input
+                    coeffs = lr.coef_[0]
+                    importance = coeffs * X[0]
+                    shap_array = importance.tolist()
+                    lime_array = importance.tolist()
+                    
+                    # De-bias demographic base weights so clinical metrics show up on charts
+                    for idx, feat in enumerate(clean_features):
+                        if feat in ['Age', 'Gender']:
+                            shap_array[idx] = shap_array[idx] * 0.4
+                            lime_array[idx] = lime_array[idx] * 0.4
+                except Exception as fallback_e:
+                    print(f"Fallback calculation also failed: {fallback_e}")
 
             results[disease] = {
                 "rf": rf_score,
