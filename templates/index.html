@@ -255,7 +255,6 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // FIX: Set this to empty string so it automatically talks to the Flask server hosting it
         const PYTHON_API_URL = "";
         const ADMIN_EMAIL = "admin@system.com"; 
 
@@ -266,6 +265,24 @@
         const authView = document.getElementById('auth-view');
         const dashboardView = document.getElementById('dashboard-view');
         const adminView = document.getElementById('admin-view');
+
+        // Setup base routing state on load
+        if(!window.location.hash) { window.location.hash = "login"; }
+
+        // BROWSER BACK BUTTON ROUTING
+        window.addEventListener('hashchange', () => {
+            const hash = window.location.hash;
+            
+            // Close modal if hash changes away from #history
+            if (hash !== '#history') {
+                document.getElementById('history-modal').classList.add('hidden');
+            }
+            
+            // Log out if user hits back to get to the login screen
+            if ((hash === '#login' || hash === '') && auth.currentUser) {
+                signOut(auth);
+            }
+        });
 
         // Toggle Auth UI
         document.getElementById('toggle-auth-mode').addEventListener('click', (e) => {
@@ -305,7 +322,25 @@
                     document.getElementById('display-user-name').innerHTML = `<i class="fa-solid fa-circle-user"></i> ${name}`;
                 }
             } catch (error) { 
-                err.innerText = error.message.replace("Firebase: ", ""); 
+                // --- USER FRIENDLY ERROR TRANSLATION ---
+                let friendlyMessage = "An error occurred. Please try again.";
+                
+                if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
+                    friendlyMessage = "Incorrect email or password. Please try again.";
+                } else if (error.code === 'auth/email-already-in-use') {
+                    friendlyMessage = "An account with this email already exists. Please switch to Login.";
+                } else if (error.code === 'auth/weak-password') {
+                    friendlyMessage = "Password is too weak. Please use at least 6 characters.";
+                } else if (error.code === 'auth/invalid-email') {
+                    friendlyMessage = "Please enter a valid email address.";
+                } else if (error.code === 'auth/network-request-failed') {
+                    friendlyMessage = "Network error. Please check your internet connection.";
+                } else {
+                    // Fallback: strip out the ugly parenthesis part if it's an unknown error
+                    friendlyMessage = error.message.replace("Firebase: ", "").replace(/ *\([^)]*\) */g, "");
+                }
+                
+                err.innerText = friendlyMessage;
             }
         });
 
@@ -315,13 +350,20 @@
                 authView.classList.add('hidden');
                 if (user.email === ADMIN_EMAIL) { 
                     adminView.classList.remove('hidden'); dashboardView.classList.add('hidden'); 
+                    if(window.location.hash !== '#admin') window.location.hash = 'admin';
                 } else { 
                     const displayName = user.displayName || "User";
                     document.getElementById('display-user-name').innerHTML = `<i class="fa-solid fa-circle-user"></i> ${displayName}`;
                     adminView.classList.add('hidden'); dashboardView.classList.remove('hidden'); 
+                    if(window.location.hash !== '#history' && window.location.hash !== '#dashboard') {
+                        window.location.hash = 'dashboard';
+                    }
                 }
             } else { 
                 authView.classList.remove('hidden'); dashboardView.classList.add('hidden'); adminView.classList.add('hidden'); 
+                if(window.location.hash !== '#login' && window.location.hash !== '') {
+                    window.location.hash = 'login';
+                }
                 document.getElementById('email').value = "";
                 document.getElementById('password').value = "";
                 document.getElementById('fullname').value = "";
@@ -403,7 +445,6 @@
                 btn.innerHTML = '<i class="fa-solid fa-check"></i> Saved to Database';
                 setTimeout(() => { btn.innerHTML = '<i class="fa-solid fa-stethoscope"></i> Predict & Save'; }, 2000);
             } catch (err) { 
-                // FIX: Better error message for debugging Render sleeping state
                 alert("API Connection Error: " + err.message + "\n\n(If you are using Render's free tier, the server might be waking up from sleep. Please wait 50 seconds and try again!)"); 
                 btn.innerHTML = '<i class="fa-solid fa-stethoscope"></i> Predict & Save'; 
             }
@@ -413,12 +454,12 @@
         const historyModal = document.getElementById('history-modal');
         
         document.getElementById('history-btn').addEventListener('click', async () => {
+            window.location.hash = 'history'; // Adds state for browser back button
             const container = document.getElementById('history-container');
             container.innerHTML = '<div style="text-align:center; padding:2rem;"><i class="fa-solid fa-circle-notch fa-spin fa-2x" style="color:var(--primary-blue);"></i></div>';
             historyModal.classList.remove('hidden');
             
             try {
-                // Get records specifically for this logged-in user
                 const q = query(collection(db, "patient_history"), where("uid", "==", auth.currentUser.uid));
                 const querySnapshot = await getDocs(q);
                 
@@ -427,7 +468,6 @@
                     records.push(doc.data());
                 });
 
-                // Sort newest first
                 records.sort((a, b) => b.timestamp - a.timestamp);
                 
                 if (records.length === 0) {
@@ -480,7 +520,12 @@
         });
 
         document.getElementById('close-history-btn').addEventListener('click', () => {
-            historyModal.classList.add('hidden');
+            // Check if URL currently ends with #history to pop it safely
+            if(window.location.hash === '#history') {
+                window.history.back();
+            } else {
+                historyModal.classList.add('hidden');
+            }
         });
 
         // UI RENDER FUNCTIONS

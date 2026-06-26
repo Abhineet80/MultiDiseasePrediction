@@ -201,7 +201,7 @@ def predict():
             rf_score = max(min(rf_score, 0.95), 0.02)
             lr_score = max(min(lr_score, 0.95), 0.02)
 
-            # ================= EXPLAINABILITY =================
+           # ================= EXPLAINABILITY =================
             clean_features = []
             for f in features:
                 c = f.lower()
@@ -222,9 +222,15 @@ def predict():
                 import shap
                 explainer_shap = shap.TreeExplainer(rf)
                 shap_vals = explainer_shap.shap_values(X)
-                if isinstance(shap_vals, list): shap_array = shap_vals[1][0].tolist()
-                elif len(shap_vals.shape) == 3: shap_array = shap_vals[0, :, 1].tolist()
-                else: shap_array = shap_vals[0].tolist()
+                
+                # Robust extraction for different SHAP versions
+                import numpy as np
+                if isinstance(shap_vals, list): 
+                    shap_array = shap_vals[1][0].tolist()
+                elif len(np.array(shap_vals).shape) == 3: 
+                    shap_array = np.array(shap_vals)[0, :, 1].tolist()
+                else: 
+                    shap_array = np.array(shap_vals)[0].tolist()
 
                 import lime
                 import lime.lime_tabular
@@ -246,7 +252,10 @@ def predict():
                         lime_array[idx] = lime_array[idx] * 0.4
                         
             except Exception as e:
-                pass
+                # DONT PASS SILENTLY! Print this to the Render console logs
+                print(f"⚠️ EXPLAINABILITY ERROR for {disease}: {str(e)}")
+                import traceback
+                traceback.print_exc()
 
             results[disease] = {
                 "rf": rf_score,
