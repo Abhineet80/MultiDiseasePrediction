@@ -255,7 +255,8 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        const PYTHON_API_URL = "https://medipredict-pkhj.onrender.com";
+        // FIX: Set this to empty string so it automatically talks to the Flask server hosting it
+        const PYTHON_API_URL = "";
         const ADMIN_EMAIL = "admin@system.com"; 
 
         let isLoginMode = true;
@@ -401,7 +402,11 @@
                 
                 btn.innerHTML = '<i class="fa-solid fa-check"></i> Saved to Database';
                 setTimeout(() => { btn.innerHTML = '<i class="fa-solid fa-stethoscope"></i> Predict & Save'; }, 2000);
-            } catch (err) { alert("Could not reach Python API."); btn.innerHTML = '<i class="fa-solid fa-stethoscope"></i> Predict & Save'; }
+            } catch (err) { 
+                // FIX: Better error message for debugging Render sleeping state
+                alert("API Connection Error: " + err.message + "\n\n(If you are using Render's free tier, the server might be waking up from sleep. Please wait 50 seconds and try again!)"); 
+                btn.innerHTML = '<i class="fa-solid fa-stethoscope"></i> Predict & Save'; 
+            }
         });
 
         // --- HISTORY MODAL LOGIC (Firestore Retrieval) ---
