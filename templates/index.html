@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Disease Prediction System</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-main: #f4f7fb; --panel-bg: #ffffff; --text-dark: #1e293b; --text-muted: #64748b;
+            --border-light: #e2e8f0; --primary-blue: #2563eb; --primary-hover: #1d4ed8; --blue-light: #eff6ff;
+            --risk-high-bg: #fee2e2; --risk-high-text: #dc2626; --risk-med-bg: #fef3c7; --risk-med-text: #d97706;
+            --risk-low-bg: #d1fae5; --risk-low-text: #059669;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+        body { background-color: var(--bg-main); color: var(--text-dark); min-height: 100vh; }
+        .hidden { display: none !important; }
+
+        #auth-view { display: flex; justify-content: center; align-items: center; height: 100vh; padding: 2rem; }
+        .auth-card { background: var(--panel-bg); padding: 3rem; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); width: 100%; max-width: 450px; text-align: center; }
+        .auth-icon { font-size: 3rem; color: var(--primary-blue); margin-bottom: 1rem; }
+        .auth-card h2 { color: #0f172a; font-size: 1.8rem; margin-bottom: 0.5rem; }
+        .auth-card p { color: var(--text-muted); margin-bottom: 2rem; font-size: 0.95rem; }
+        .form-group { text-align: left; margin-bottom: 1.2rem; }
+        .form-group label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.4rem; }
+        .form-group input, .form-group select { width: 100%; padding: 0.75rem; border: 1px solid var(--border-light); border-radius: 6px; font-size: 1rem; }
+        .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--primary-blue); box-shadow: 0 0 0 3px var(--blue-light); }
+        .auth-btn { width: 100%; background-color: var(--primary-blue); color: white; border: none; padding: 0.85rem; border-radius: 6px; font-size: 1.05rem; font-weight: 600; cursor: pointer; transition: 0.2s; margin-top: 0.5rem; }
+        .auth-btn:hover { background-color: var(--primary-hover); }
+        .auth-toggle { margin-top: 1.5rem; font-size: 0.9rem; color: var(--text-muted); }
+        .auth-toggle a { color: var(--primary-blue); text-decoration: none; font-weight: 600; }
+
+        #dashboard-view, #admin-view { padding: 0 2rem 2rem 2rem; }
+        .top-nav { display: flex; justify-content: space-between; align-items: center; padding: 1.5rem 0; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-light); }
+        .nav-brand h1 { color: #0f172a; font-size: 1.8rem; margin-bottom: 0.2rem; }
+        .nav-brand p { color: var(--text-muted); font-size: 0.95rem; }
+        .nav-actions { display: flex; gap: 1rem; align-items: center;}
+        .nav-btn { padding: 0.6rem 1.2rem; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.9rem; display: flex; align-items: center; gap: 8px; transition: 0.2s; }
+        .history-btn { background: #fff; border: 1px solid var(--border-light); color: var(--text-dark); }
+        .logout-btn { background: #fff; border: 1px solid #fca5a5; color: var(--risk-high-text); }
+        
+        .admin-panel { max-width: 800px; margin: 0 auto; background: var(--panel-bg); padding: 2rem; border-radius: 12px; border: 1px solid var(--border-light); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);}
+        .upload-zone { border: 2px dashed var(--primary-blue); padding: 2rem; text-align: center; border-radius: 8px; margin-bottom: 1.5rem; background: var(--blue-light); }
+        
+        .dashboard-container { max-width: 1400px; margin: 0 auto; display: grid; grid-template-columns: 300px 1fr 300px; grid-template-areas: "input predictions risk" "input explainability explainability"; gap: 1.5rem; }
+        .panel { background: var(--panel-bg); border-radius: 12px; border: 1px solid var(--border-light); padding: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+        .panel-header { display: flex; align-items: center; gap: 10px; margin-bottom: 1.5rem; color: var(--primary-blue); font-size: 1.1rem; font-weight: 600; }
+        
+        .input-section { grid-area: input; }
+        .input-row { display: flex; align-items: center; margin-bottom: 1rem; padding-bottom: 0.8rem; border-bottom: 1px solid var(--border-light); }
+        .input-row:last-child { border-bottom: none; }
+        .input-icon { width: 30px; color: var(--primary-blue); text-align: center; font-size: 1.1rem; }
+        .input-label { flex-grow: 1; font-size: 0.9rem; font-weight: 500; padding-left: 10px; }
+        .input-label span { display: block; font-size: 0.75rem; color: var(--text-muted); font-weight: 400; }
+        .input-field { width: 90px; padding: 0.5rem; border: 1px solid var(--border-light); border-radius: 6px; text-align: right; }
+        .predict-btn { width: 100%; background-color: var(--primary-blue); color: white; border: none; padding: 1rem; border-radius: 8px; font-size: 1.1rem; font-weight: 600; margin-top: 1rem; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 10px; }
+        
+        .predictions-section { grid-area: predictions; }
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: center; padding: 1rem 0.5rem; color: var(--text-dark); font-weight: 600; font-size: 0.9rem; border-bottom: 2px solid var(--border-light); }
+        td { padding: 1rem 0.5rem; text-align: center; border-bottom: 1px solid var(--border-light); vertical-align: middle; }
+        .disease-cell { display: flex; align-items: center; gap: 12px; text-align: left; font-weight: 600; }
+        .disease-icon { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
+        
+        .icon-blue { background: var(--blue-light); color: var(--primary-blue); } 
+        .icon-red { background: var(--risk-high-bg); color: var(--risk-high-text); } 
+        .icon-green { background: var(--risk-low-bg); color: var(--risk-low-text); }
+        .icon-brown { background: #fdf0e6; color: #8b4513; }
+        
+        .prob-value { font-weight: 600; color: var(--primary-blue); margin-bottom: 5px; }
+        .prob-bar-bg { width: 80%; height: 8px; background: #e2e8f0; border-radius: 4px; margin: 0 auto; overflow: hidden; }
+        .prob-bar-fill { height: 100%; background: var(--primary-blue); border-radius: 4px; transition: width 0.5s ease-in-out; }
+        .badge { padding: 0.4rem 1rem; border-radius: 6px; font-weight: 600; font-size: 0.9rem; display: inline-block; }
+        .badge.high { background: var(--risk-high-bg); color: var(--risk-high-text); } .badge.med { background: var(--risk-med-bg); color: var(--risk-med-text); } .badge.low { background: var(--risk-low-bg); color: var(--risk-low-text); }
+        
+        .risk-section { grid-area: risk; }
+        .risk-card { padding: 1rem; border-radius: 8px; margin-bottom: 1rem; display: flex; gap: 12px; align-items: flex-start; }
+        .risk-card.high { background: #fff5f5; border: 1px solid #fecaca; } .risk-card.med { background: #fffbeb; border: 1px solid #fde68a; } .risk-card.low { background: #f0fdf4; border: 1px solid #bbf7d0; }
+        .risk-info h4 { margin-bottom: 0.2rem; font-size: 0.95rem; } .risk-info strong { display: block; margin-bottom: 0.3rem; font-size: 0.85rem; } .risk-info p { font-size: 0.8rem; color: var(--text-muted); }
+        .explain-section { grid-area: explainability; }
+        .charts-container { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+        .chart-box { border: 1px solid var(--border-light); border-radius: 8px; padding: 1rem; height: 300px; }
+        .footer-note { text-align: center; color: var(--text-muted); font-size: 0.85rem; margin-top: 2rem; }
+
+        /* Patient History Modal Styles */
+        .history-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); z-index: 1000; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(4px); }
+        .history-modal { background: #fff; width: 90%; max-width: 900px; height: 85vh; border-radius: 16px; display: flex; flex-direction: column; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); overflow: hidden; }
+        .history-header { padding: 1.5rem 2rem; border-bottom: 1px solid var(--border-light); display: flex; justify-content: space-between; align-items: center; background: var(--bg-main); }
+        .history-header h2 { color: var(--text-dark); font-size: 1.4rem; }
+        .close-btn { background: none; border: none; font-size: 1.5rem; color: var(--text-muted); cursor: pointer; transition: 0.2s; }
+        .close-btn:hover { color: var(--risk-high-text); }
+        .history-body { padding: 2rem; overflow-y: auto; flex-grow: 1; background: #fff; }
+        .history-card { border: 1px solid var(--border-light); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; background: var(--bg-main); display: flex; flex-wrap: wrap; gap: 1.5rem; }
+        .history-date { width: 100%; font-size: 0.9rem; color: var(--text-muted); font-weight: 600; border-bottom: 1px solid var(--border-light); padding-bottom: 0.5rem; margin-bottom: 0.5rem; }
+        .history-inputs { flex: 1; min-width: 250px; }
+        .history-results { flex: 1; min-width: 300px; background: #fff; padding: 1rem; border-radius: 8px; border: 1px solid var(--border-light); }
+        .history-input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.9rem; }
+        .history-input-grid span { color: var(--text-muted); }
+        .history-result-item { display: flex; justify-content: space-between; margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px dashed var(--border-light); font-size: 0.95rem; font-weight: 500; }
+        .history-result-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+    </style>
+</head>
+<body>
+
+    <!-- AUTHENTICATION -->
+    <div id="auth-view">
+        <div class="auth-card">
+            <!-- Icon changed to be more general health-oriented -->
+            <i class="fa-solid fa-heart-pulse auth-icon"></i>
+            <h2 id="auth-title">System Login</h2>
+            <p>Access your Multi-Disease Risk Dashboard</p>
+            <div id="auth-error" style="color:var(--risk-high-text); margin-bottom:1rem; font-weight:600;"></div>
+            <form id="auth-form">
+                <!-- Public-friendly name field -->
+                <div class="form-group hidden" id="name-group">
+                    <label>Full Name</label>
+                    <input type="text" id="fullname" placeholder="e.g. John Doe">
+                </div>
+                <!-- Public-friendly email field -->
+                <div class="form-group"><label>Email Address</label><input type="email" id="email" required placeholder="user@example.com"></div>
+                <div class="form-group"><label>Password</label><input type="password" id="password" required placeholder="••••••••"></div>
+                <button type="submit" class="auth-btn" id="auth-submit-btn">Login</button>
+            </form>
+            <div class="auth-toggle"><span id="auth-toggle-text">New user? </span><a href="#" id="toggle-auth-mode">Create an account</a></div>
+        </div>
+    </div>
+
+    <!-- ADMIN TERMINAL -->
+    <div id="admin-view" class="hidden">
+        <div class="top-nav">
+            <div class="nav-brand"><h1>Admin Dashboard</h1><p>Dataset Upload & Model Training</p></div>
+            <div class="nav-actions"><button class="nav-btn logout-btn admin-logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</button></div>
+        </div>
+        <div class="admin-panel">
+            <h3 style="margin-bottom: 0.5rem; color: var(--primary-blue);"><i class="fa-solid fa-server"></i> Train Machine Learning Models</h3>
+            <p style="margin-bottom:1.5rem; color: var(--text-muted);">Upload a CSV dataset to retrain the models.</p>
+            <form id="admin-train-form">
+                <div class="form-group">
+                    <label>Select Disease Dataset Target:</label>
+                    <select id="disease-type" required>
+                        <option value="diabetes">Diabetes</option><option value="cardio">Cardiovascular / Heart Disease</option>
+                        <option value="kidney">Kidney Disease</option><option value="hyper">Hypertension</option>
+                    </select>
+                </div>
+                <div class="upload-zone">
+                    <i class="fa-solid fa-cloud-arrow-up" style="font-size: 2rem; color: var(--primary-blue); margin-bottom: 10px;"></i><br>
+                    <input type="file" id="csv-file" accept=".csv" required style="max-width: 250px;">
+                </div>
+                <button type="submit" class="auth-btn" id="train-btn">Upload & Train Model</button>
+                <div id="train-status" style="margin-top:1rem; font-weight:bold; text-align: center;"></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div id="dashboard-view" class="hidden">
+        <div class="top-nav">
+            <div class="nav-brand"><h1>Multi-Disease Prediction System</h1><p>Predicting Diabetes, Heart Disease, Hypertension & Kidney Disease</p></div>
+            <div class="nav-actions">
+                <!-- Generic User Icon instead of Doctor Icon -->
+                <span id="display-user-name" style="font-weight:600; color: var(--primary-blue); margin-right: 1rem; font-size: 1.05rem;"></span>
+                <button id="history-btn" class="nav-btn history-btn"><i class="fa-solid fa-clock-rotate-left"></i> Personal History</button>
+                <button class="nav-btn logout-btn user-logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+            </div>
+        </div>
+
+        <div class="dashboard-container">
+            <div class="panel input-section">
+                <div class="panel-header"><i class="fa-regular fa-user"></i><span>1. Health Metrics Input</span></div>
+                <form id="predict-form">
+                    <div class="input-row"><i class="fa-regular fa-calendar input-icon"></i><div class="input-label">Age <span>(years)</span></div><input type="number" id="in-age" class="input-field" value="45" required></div>
+                    
+                    <div class="input-row"><i class="fa-solid fa-venus-mars input-icon"></i><div class="input-label">Gender</div>
+                        <select id="in-gender" class="input-field" required>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                        </select>
+                    </div>
+                    
+                    <div class="input-row"><i class="fa-solid fa-heart-pulse input-icon" style="color:var(--risk-high-text)"></i><div class="input-label">Blood Pressure <span>(mmHg)</span></div><input type="text" id="in-bp" class="input-field" value="135/85" required></div>
+                    <div class="input-row"><i class="fa-solid fa-droplet input-icon" style="color:var(--risk-high-text)"></i><div class="input-label">Glucose Level <span>(mg/dL)</span></div><input type="number" id="in-glucose" class="input-field" value="140" required></div>
+                    <div class="input-row"><i class="fa-solid fa-vial input-icon" style="color:var(--risk-med-text)"></i><div class="input-label">Cholesterol <span>(mg/dL)</span></div><input type="number" id="in-chol" class="input-field" value="200" required></div>
+                    
+                    <div class="input-row"><i class="fa-solid fa-flask input-icon" style="color:#8b4513"></i><div class="input-label">Creatinine <span>(mg/dL)</span></div><input type="number" step="0.1" id="in-creat" class="input-field" value="1.1" required></div>
+                    <div class="input-row"><i class="fa-solid fa-weight-scale input-icon"></i><div class="input-label">BMI <span>(kg/m²)</span></div><input type="number" step="0.1" id="in-bmi" class="input-field" value="26.0" required></div>
+                    
+                    <div class="input-row"><i class="fa-solid fa-smoking input-icon" style="color:var(--risk-med-text)"></i><div class="input-label">Smoking</div>
+                        <select id="in-smoke" class="input-field" required>
+                            <option value="Yes">Yes</option>
+                            <option value="No" selected>No</option>
+                        </select>
+                    </div>
+                    
+                    <button type="submit" class="predict-btn" id="run-predict-btn"><i class="fa-solid fa-stethoscope"></i> Predict & Save</button>
+                </form>
+            </div>
+
+            <div class="panel predictions-section">
+                <div class="panel-header" style="color: #10b981;"><i class="fa-solid fa-brain"></i><span>2. Model Predictions</span></div>
+                <table>
+                    <thead><tr><th style="text-align: left;">Disease</th><th>Random Forest<br><span style="font-weight:400; font-size:0.8rem">(Probability)</span></th><th>Logistic Regression<br><span style="font-weight:400; font-size:0.8rem">(Probability)</span></th><th>Risk Level</th></tr></thead>
+                    <tbody id="prediction-results">
+                        <tr><td colspan="4" style="color: var(--text-muted); padding: 3rem 0;"><i class="fa-solid fa-chart-line" style="font-size: 2rem; margin-bottom: 10px; opacity: 0.5;"></i><br>Run a prediction to see AI analysis.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="panel risk-section">
+                <div class="panel-header" style="color: #8b5cf6;"><i class="fa-solid fa-shield-check"></i><span>3. Risk Level Guide</span></div>
+                <div class="risk-card high"><i class="fa-solid fa-triangle-exclamation" style="color:var(--risk-high-text)"></i><div class="risk-info"><h4 style="color:var(--risk-high-text)">High Risk</h4><strong>Probability ≥ 0.70</strong><p>Immediate clinical intervention & close monitoring recommended.</p></div></div>
+                <div class="risk-card med"><i class="fa-solid fa-circle-exclamation" style="color:var(--risk-med-text)"></i><div class="risk-info"><h4 style="color:var(--risk-med-text)">Medium Risk</h4><strong>0.40 ≤ Probability < 0.70</strong><p>Preventative lifestyle adjustments & routine check-ups advised.</p></div></div>
+                <div class="risk-card low"><i class="fa-regular fa-circle-check" style="color:var(--risk-low-text)"></i><div class="risk-info"><h4 style="color:var(--risk-low-text)">Low Risk</h4><strong>Probability < 0.40</strong><p>Maintain current healthy lifestyle protocols and annual screening.</p></div></div>
+            </div>
+
+            <div class="panel explain-section">
+                <div class="panel-header" style="color: #6366f1;"><i class="fa-solid fa-magnifying-glass-chart"></i><span>4. Model Explainability</span></div>
+                <div class="charts-container">
+                    <div class="chart-box"><canvas id="shapChart"></canvas></div>
+                    <div class="chart-box"><canvas id="limeChart"></canvas></div>
+                </div>
+                
+                <div id="ai-explanation-container" class="hidden" style="margin-top: 1.5rem; padding: 1.5rem; background: var(--blue-light); border-left: 4px solid var(--primary-blue); border-radius: 8px;">
+                    <h4 style="color: var(--primary-blue); margin-bottom: 0.5rem; font-size: 1.1rem;"><i class="fa-solid fa-robot"></i> Clinical AI Assessment</h4>
+                    <p id="ai-explanation-text" style="font-size: 0.95rem; line-height: 1.6; color: var(--text-dark); margin-bottom: 1rem;"></p>
+                    
+                    <h4 style="color: var(--risk-high-text); margin-bottom: 0.5rem; font-size: 1.1rem;"><i class="fa-solid fa-notes-medical"></i> Recommended Protocols</h4>
+                    <ul id="ai-precautions-list" style="padding-left: 1.2rem; font-size: 0.95rem; line-height: 1.6; color: var(--text-dark);"></ul>
+                </div>
+
+            </div>
+        </div>
+        <div class="footer-note">Note: Predictions generated via algorithmic proxy and are not a substitute for formal diagnostic procedures.</div>
+    </div>
+
+    <!-- PATIENT HISTORY MODAL -->
+    <div id="history-modal" class="history-modal-overlay hidden">
+        <div class="history-modal">
+            <div class="history-header">
+                <h2><i class="fa-solid fa-clipboard-user"></i> Saved Prediction History</h2>
+                <button class="close-btn" id="close-history-btn"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="history-body" id="history-container">
+                <!-- History Cards inject here via JS -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // SYSTEM CONFIGURATION
+        // ==========================================
+        const PYTHON_API_URL = "";
+        const ADMIN_EMAIL = "admin@system.com"; 
+        const ADMIN_PASSWORD = "admin"; // <--- CHANGE YOUR ADMIN PASSWORD HERE
+
+        // --- REAL LOCAL DATABASE & AUTHENTICATION ---
+        const auth = {
+            currentUser: null, 
+            listeners: [],
+            onAuthStateChanged: function(cb) { 
+                this.listeners.push(cb); 
+                const u = JSON.parse(localStorage.getItem('current_user')); 
+                this.currentUser = u; 
+                cb(u); 
+            },
+            signInWithEmailAndPassword: async function(e, p) { 
+                const users = JSON.parse(localStorage.getItem('system_users')) || {};
+                
+                // 1. Secure Admin Login Check
+                if(e === ADMIN_EMAIL) {
+                    if (p === ADMIN_PASSWORD) {
+                        const u = { email: e, name: "System Admin", uid: "admin_001" };
+                        localStorage.setItem('current_user', JSON.stringify(u));
+                        this.currentUser = u; 
+                        this.listeners.forEach(cb => cb(u)); 
+                        return { user: u };
+                    } else {
+                        throw new Error("Incorrect Admin Password!");
+                    }
+                }
+                
+                // 2. Regular User Login Check
+                if (users[e] && users[e].password === p) {
+                    const u = { email: e, name: users[e].name, uid: users[e].uid };
+                    localStorage.setItem('current_user', JSON.stringify(u));
+                    this.currentUser = u;
+                    this.listeners.forEach(cb => cb(u));
+                    return { user: u };
+                } else {
+                    throw new Error("Invalid email or password. Please try again or create an account.");
+                }
+            },
+            createUserWithEmailAndPassword: async function(e, p, name) { 
+                const users = JSON.parse(localStorage.getItem('system_users')) || {};
+                if (users[e]) throw new Error("An account with this email already exists!");
+                if (e === ADMIN_EMAIL) throw new Error("Cannot register the admin email.");
+                if (!name || name.trim() === "") throw new Error("Please enter your Full Name to register.");
+                
+                const uid = 'user_' + Date.now();
+                users[e] = { email: e, password: p, name: name, uid: uid };
+                localStorage.setItem('system_users', JSON.stringify(users));
+                return this.signInWithEmailAndPassword(e, p);
+            },
+            signOut: async function() { 
+                localStorage.removeItem('current_user'); 
+                this.currentUser = null; 
+                this.listeners.forEach(cb => cb(null)); 
+            }
+        };
+
+        const db = { 
+            collection: function(c) { 
+                return { 
+                    add: async function(d) { 
+                        const existing = JSON.parse(localStorage.getItem(c)) || []; 
+                        existing.unshift(d); // Add to top of list
+                        localStorage.setItem(c, JSON.stringify(existing)); 
+                        return { id: "record_" + Date.now() }; 
+                    },
+                    getHistory: function(uid) {
+                        const all = JSON.parse(localStorage.getItem(c)) || [];
+                        return all.filter(record => record.uid === uid);
+                    }
+                }; 
+            } 
+        };
+
+        let isLoginMode = true;
+        let shapChartInstance = null; 
+        let limeChartInstance = null; 
+
+        const authView = document.getElementById('auth-view'), dashboardView = document.getElementById('dashboard-view'), adminView = document.getElementById('admin-view');
+
+        // Toggle Auth UI
+        document.getElementById('toggle-auth-mode').addEventListener('click', (e) => {
+            e.preventDefault(); isLoginMode = !isLoginMode;
+            document.getElementById('auth-title').innerText = isLoginMode ? "System Login" : "Create Account";
+            document.getElementById('auth-submit-btn').innerText = isLoginMode ? "Login" : "Register";
+            document.getElementById('auth-toggle-text').innerText = isLoginMode ? "New user? " : "Already have an account? ";
+            e.target.innerText = isLoginMode ? "Create an account" : "Login here";
+            
+            // Show/Hide Full Name Field
+            const nameGroup = document.getElementById('name-group');
+            const nameInput = document.getElementById('fullname');
+            if (isLoginMode) {
+                nameGroup.classList.add('hidden');
+                nameInput.removeAttribute('required');
+            } else {
+                nameGroup.classList.remove('hidden');
+                nameInput.setAttribute('required', 'true');
+            }
+            document.getElementById('auth-error').innerText = "";
+        });
+
+        // Submit Auth Form
+        document.getElementById('auth-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const err = document.getElementById('auth-error'); err.innerText = "";
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const name = document.getElementById('fullname').value;
+
+            try {
+                if (isLoginMode) {
+                    await auth.signInWithEmailAndPassword(email, password);
+                } else {
+                    await auth.createUserWithEmailAndPassword(email, password, name);
+                }
+            } catch (error) { err.innerText = error.message; }
+        });
+
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                authView.classList.add('hidden');
+                if (user.email === ADMIN_EMAIL) { 
+                    adminView.classList.remove('hidden'); dashboardView.classList.add('hidden'); 
+                } else { 
+                    // Update Display Name with Generic User Icon
+                    document.getElementById('display-user-name').innerHTML = `<i class="fa-solid fa-circle-user"></i> ${user.name}`;
+                    adminView.classList.add('hidden'); dashboardView.classList.remove('hidden'); 
+                }
+            } else { 
+                authView.classList.remove('hidden'); dashboardView.classList.add('hidden'); adminView.classList.add('hidden'); 
+                // Reset form fields
+                document.getElementById('email').value = "";
+                document.getElementById('password').value = "";
+                document.getElementById('fullname').value = "";
+            }
+        });
+
+        document.querySelectorAll('.logout-btn').forEach(btn => btn.addEventListener('click', () => {
+            auth.signOut();
+            if (shapChartInstance) shapChartInstance.destroy();
+            if (limeChartInstance) limeChartInstance.destroy();
+            document.getElementById('ai-explanation-container').classList.add('hidden');
+            document.getElementById('prediction-results').innerHTML = '<tr><td colspan="4" style="color: var(--text-muted); padding: 3rem 0;"><i class="fa-solid fa-chart-line" style="font-size: 2rem; margin-bottom: 10px; opacity: 0.5;"></i><br>Run a prediction to see AI analysis.</td></tr>';
+        }));
+
+        document.getElementById('admin-train-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const file = document.getElementById('csv-file').files[0], statusDiv = document.getElementById('train-status');
+            if (!file) return;
+            statusDiv.innerText = "Applying Expert Thresholds & Training ML Model... Please wait."; statusDiv.style.color = "var(--risk-med-text)";
+            const formData = new FormData(); formData.append("file", file); formData.append("disease_type", document.getElementById('disease-type').value);
+            try {
+                const res = await fetch(`${PYTHON_API_URL}/train`, { method: 'POST', body: formData });
+                const json = await res.json();
+                if (res.ok) { statusDiv.innerText = json.message + " ✓"; statusDiv.style.color = "var(--risk-low-text)"; } 
+                else { statusDiv.innerText = "Error: " + json.error; statusDiv.style.color = "var(--risk-high-text)"; }
+            } catch (err) { statusDiv.innerText = "Failed to connect. Is Python running on port 5001?"; statusDiv.style.color = "var(--risk-high-text)"; }
+        });
+
+        document.getElementById('predict-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('run-predict-btn'); btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Analyzing...';
+            
+            const patientData = {
+                age: document.getElementById('in-age').value,
+                gender: document.getElementById('in-gender').value,
+                bp: document.getElementById('in-bp').value,
+                glucose: document.getElementById('in-glucose').value,
+                chol: document.getElementById('in-chol').value,
+                creat: document.getElementById('in-creat').value,
+                bmi: document.getElementById('in-bmi').value,
+                smoke: document.getElementById('in-smoke').value
+            };
+            
+            try {
+                const res = await fetch(`${PYTHON_API_URL}/predict`, { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify(patientData) 
+                });
+                
+                const predictions = await res.json();
+                
+                if (!res.ok || predictions.error) { 
+                    alert("System Notice: " + (predictions.error || "Unknown error occurred.")); 
+                    btn.innerHTML = '<i class="fa-solid fa-stethoscope"></i> Predict & Save'; 
+                    return; 
+                }
+                
+                if(Object.keys(predictions).length < 4) {
+                    alert("Warning: Not all diseases were analyzed! Please log into the Admin panel and 'Upload & Train' the missing datasets.");
+                }
+
+                renderPredictions(predictions);
+                renderExplainability(predictions);
+                
+                // Save to local database with a timestamp
+                const dateStr = new Date().toLocaleString();
+                await db.collection("patient_history").add({ 
+                    uid: auth.currentUser.uid, 
+                    date: dateStr, 
+                    inputs: patientData, 
+                    results: predictions 
+                });
+                
+                btn.innerHTML = '<i class="fa-solid fa-check"></i> Saved to Database';
+                setTimeout(() => { btn.innerHTML = '<i class="fa-solid fa-stethoscope"></i> Predict & Save'; }, 2000);
+            } catch (err) { alert("Could not reach Python API. Ensure Flask is running on port 5001."); btn.innerHTML = '<i class="fa-solid fa-stethoscope"></i> Predict & Save'; }
+        });
+
+        // --- HISTORY MODAL LOGIC ---
+        const historyModal = document.getElementById('history-modal');
+        
+        document.getElementById('history-btn').addEventListener('click', () => {
+            const container = document.getElementById('history-container');
+            container.innerHTML = "";
+            
+            // Get records specifically for this logged-in user
+            const records = db.collection('patient_history').getHistory(auth.currentUser.uid);
+            
+            if (records.length === 0) {
+                container.innerHTML = "<p style='text-align:center; color:var(--text-muted); margin-top:2rem;'>No assessment history found. Run a prediction first!</p>";
+            } else {
+                const diseaseLabels = { 'diabetes': 'Diabetes', 'cardio': 'Heart Disease', 'kidney': 'Kidney Disease', 'hyper': 'Hypertension' };
+                
+                records.forEach(rec => {
+                    let inputHtml = `
+                        <div class="history-input-grid">
+                            <div><span>Age:</span> ${rec.inputs.age}</div>
+                            <div><span>Gender:</span> ${rec.inputs.gender}</div>
+                            <div><span>BP:</span> ${rec.inputs.bp}</div>
+                            <div><span>Glucose:</span> ${rec.inputs.glucose}</div>
+                            <div><span>Cholesterol:</span> ${rec.inputs.chol}</div>
+                            <div><span>Creatinine:</span> ${rec.inputs.creat}</div>
+                            <div><span>BMI:</span> ${rec.inputs.bmi}</div>
+                            <div><span>Smoking:</span> ${rec.inputs.smoke}</div>
+                        </div>
+                    `;
+                    
+                    let resultsHtml = "";
+                    Object.keys(rec.results).forEach(key => {
+                        const maxProb = Math.max(rec.results[key].rf, rec.results[key].lr);
+                        let riskColor = maxProb >= 0.70 ? "var(--risk-high-text)" : (maxProb >= 0.40 ? "var(--risk-med-text)" : "var(--risk-low-text)");
+                        let riskLabel = maxProb >= 0.70 ? "High" : (maxProb >= 0.40 ? "Med" : "Low");
+                        
+                        resultsHtml += `
+                            <div class="history-result-item">
+                                <span>${diseaseLabels[key]}</span>
+                                <strong style="color:${riskColor};">${riskLabel} (${(maxProb*100).toFixed(0)}%)</strong>
+                            </div>
+                        `;
+                    });
+
+                    const card = document.createElement('div');
+                    card.className = 'history-card';
+                    card.innerHTML = `
+                        <div class="history-date"><i class="fa-regular fa-calendar-check"></i> Date: ${rec.date}</div>
+                        <div class="history-inputs"><strong style="display:block; margin-bottom:10px; color:var(--text-dark);">Metrics Provided</strong>${inputHtml}</div>
+                        <div class="history-results"><strong style="display:block; margin-bottom:10px; color:var(--text-dark);">AI Risk Assessment</strong>${resultsHtml}</div>
+                    `;
+                    container.appendChild(card);
+                });
+            }
+            
+            historyModal.classList.remove('hidden');
+        });
+
+        document.getElementById('close-history-btn').addEventListener('click', () => {
+            historyModal.classList.add('hidden');
+        });
+
+        function renderPredictions(data) {
+            const tbody = document.getElementById('prediction-results'); tbody.innerHTML = "";
+            
+            const diseaseConfig = { 
+                'diabetes': { label: 'Diabetes', icon: 'fa-pager', colorClass: 'icon-blue' }, 
+                'cardio': { label: 'Heart Disease', icon: 'fa-heart-pulse', colorClass: 'icon-red' }, 
+                'hyper': { label: 'Hypertension', icon: 'fa-gauge-high', colorClass: 'icon-red' },
+                'kidney': { label: 'Kidney Disease', icon: 'fa-kidneys', colorClass: 'icon-brown' } 
+            };
+            
+            Object.keys(diseaseConfig).forEach(key => {
+                if (data[key]) {
+                    const rfProb = data[key].rf, lrProb = data[key].lr, maxProb = Math.max(rfProb, lrProb);
+                    const badgeHtml = maxProb >= 0.70 ? '<span class="badge high">High</span>' : (maxProb >= 0.40 ? '<span class="badge med">Medium</span>' : '<span class="badge low">Low</span>');
+                    const c = diseaseConfig[key];
+                    tbody.innerHTML += `<tr>
+                        <td>
+                            <div class="disease-cell">
+                                <div class="disease-icon ${c.colorClass}">
+                                    <i class="fa-solid ${c.icon}"></i>
+                                </div>
+                                ${c.label}
+                            </div>
+                        </td>
+                        <td><div class="prob-value">${rfProb.toFixed(2)}</div><div class="prob-bar-bg"><div class="prob-bar-fill" style="width: ${(rfProb * 100).toFixed(0)}%;"></div></div></td>
+                        <td><div class="prob-value">${lrProb.toFixed(2)}</div><div class="prob-bar-bg"><div class="prob-bar-fill" style="width: ${(lrProb * 100).toFixed(0)}%;"></div></div></td>
+                        <td>${badgeHtml}</td>
+                    </tr>`;
+                }
+            });
+        }
+
+        function renderExplainability(data) {
+            let maxRisk = -1, targetKey = null;
+            let elevatedRisks = []; 
+            
+            const diseaseLabels = { 'diabetes': 'Diabetes mellitus', 'cardio': 'Cardiovascular pathology', 'kidney': 'Chronic Kidney Disease (CKD)', 'hyper': 'Hypertension' };
+            
+            Object.keys(data).forEach(key => { 
+                if (data[key].rf >= 0.40) {
+                    elevatedRisks.push({ key: key, risk: data[key].rf, name: diseaseLabels[key] });
+                }
+                if (data[key].rf > maxRisk) { maxRisk = data[key].rf; targetKey = key; } 
+            });
+            
+            if (!targetKey || !data[targetKey].explain) return;
+
+            const explain = data[targetKey].explain, diseaseName = diseaseLabels[targetKey] || targetKey;
+            
+            const shapColors = explain.shap.map(v => v > 0 ? '#ef4444' : '#3b82f6'), limeColors = explain.lime.map(v => v > 0 ? '#ef4444' : '#3b82f6');
+
+            if (shapChartInstance) shapChartInstance.destroy();
+            shapChartInstance = new Chart(document.getElementById('shapChart').getContext('2d'), {
+                type: 'bar', data: { labels: explain.features, datasets: [{ data: explain.shap, backgroundColor: shapColors, barThickness: 15 }] },
+                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: `SHAP Global Impact (${diseaseName})` } }, scales: { x: { title: { display: true, text: 'Mathematical Push on Probability' } }, y: { grid: { display: false } } } }
+            });
+
+            if (limeChartInstance) limeChartInstance.destroy();
+            limeChartInstance = new Chart(document.getElementById('limeChart').getContext('2d'), {
+                type: 'bar', data: { labels: explain.features, datasets: [{ data: explain.lime, backgroundColor: limeColors, barThickness: 15 }] },
+                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: `LIME Local Decision Mapping` } }, scales: { x: { title: { display: true, text: 'Weight assigned to Patient Input' } }, y: { grid: { display: false } } } }
+            });
+
+            const riskLevelText = maxRisk >= 0.70 ? "Elevated (High)" : (maxRisk >= 0.40 ? "Moderate" : "Nominal (Low)");
+            
+            let explanationText = `Based on the multi-variate analysis, the algorithmic ensemble has flagged an overarching <strong>${riskLevelText} clinical risk profile</strong>. `;
+            
+            if (maxRisk < 0.40) {
+                 explanationText = `The current metrics yield a <strong>${riskLevelText} clinical risk profile</strong> (${(maxRisk*100).toFixed(1)}%). All primary indicators remain within statistically safe boundaries. The LIME matrix above outlines the minor baseline factors contributing to this nominal risk.`;
+            } else if (elevatedRisks.length > 1) {
+                explanationText += `The model detects compounding physiological stress across multiple systems, specifically noting elevated probabilities for `;
+                explanationText += elevatedRisks.map(d => `<strong>${d.name}</strong>`).join(", ");
+                explanationText += `. <br><br>While the LIME matrix explicitly maps the dominant variables for the primary threat (${diseaseName}) including baseline demographics, it is clinically vital to focus on actionable metrics.`;
+            } else {
+                 let maxLimeVal = -999;
+                 let topFeatureName = "certain key vitals";
+                 const immutableFactors = ['age', 'sex', 'gender', 'family', 'history'];
+                 for(let i=0; i < explain.lime.length; i++) {
+                     let isImmutable = immutableFactors.some(img => explain.features[i].toLowerCase().includes(img));
+                     if(explain.lime[i] > maxLimeVal && !isImmutable) {
+                         maxLimeVal = explain.lime[i];
+                         topFeatureName = explain.features[i];
+                     }
+                 }
+                 if(maxLimeVal === -999) { topFeatureName = explain.features[0]; }
+                 explanationText += `The primary concern is the development or presence of <strong>${diseaseName}</strong> (calculated probability: ${(maxRisk*100).toFixed(1)}%). While immutable demographics (like Age) heavily influence the baseline statistical model, the primary <em>actionable</em> physiological variable compounding this specific risk vector is their <strong>${topFeatureName}</strong>.`;
+            }
+
+            document.getElementById('ai-explanation-text').innerHTML = explanationText;
+                
+            const clinicalProtocols = {
+                'diabetes': "<strong>Endocrinology (Diabetes):</strong> Initiate continuous glucose monitoring or fasting HbA1c panels. Transition to a low-glycemic index protocol.",
+                'cardio': "<strong>Cardiology (Heart Disease):</strong> Schedule comprehensive lipid panel and continuous ambulatory blood pressure monitoring.",
+                'kidney': "<strong>Nephrology (Kidney):</strong> Monitor eGFR and restrict systemic sodium/protein load to reduce nephron capillary barotrauma.",
+                'hyper': "<strong>Hemodynamics (Hypertension):</strong> Implement strict dietary sodium restriction (< 1,500 mg daily) and evaluate for ACE inhibitors or ARBs if consistently >130 mmHg."
+            };
+            
+            const listEl = document.getElementById('ai-precautions-list');
+            listEl.innerHTML = "";
+            
+            if (maxRisk < 0.40) {
+                 listEl.innerHTML = "<li>Maintain current healthy lifestyle protocols and schedule routine annual screening.</li>";
+            } else if (elevatedRisks.length > 0) {
+                elevatedRisks.forEach(d => {
+                     if(clinicalProtocols[d.key]) listEl.innerHTML += `<li>${clinicalProtocols[d.key]}</li>`;
+                });
+            }
+            
+            document.getElementById('ai-explanation-container').classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
